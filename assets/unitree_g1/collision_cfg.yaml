@@ -1,0 +1,181 @@
+# Robot body group definitions and self-collision limit parameters
+parameters:
+  # REQUIRED (no code default): construction raises if any of these is missing.
+  damping: 5.0              # Levenberg-Marquardt regularization of the IK QP
+  max_iter: 10              # IK iterations per frame
+  # IK solver / loop tuning (externalized; code keeps back-compat defaults if omitted).
+  solver : daqp             # QP backend passed to mink.solve_ik
+  warmup_iters : 500        # IK iterations on the very first frame (settle from rest)
+  ik_convergence_tol : 1.0e-8   # IK loop early-stop: |err_t - err_{t-1}| < tol
+  lm_damping : 1.0          # per-FrameTask Levenberg-Marquardt damping
+  motion_fps : 30           # frame rate assumed for the foot-contact threshold
+  # Cap [m/s] on the robot base horizontal speed, applied by adjust_hips_scale_for_motion()
+  # before each motion. Only the Hips HORIZONTAL motion is touched (z / gait / limb scales
+  # untouched). Comment out to disable. Caps the scaled-REFERENCE peak; the base is free in
+  # the IK so the robot itself can still overshoot ~1.5x.
+  max_base_horizontal_speed : 3.0
+  # How that cap is enforced:
+  #   per_frame : increment-level saturation, p'_t = p'_{t-1} + min(s_nom, limit/v_t)*dp_t.
+  #               Frames under the cap keep the nominal scale EXACTLY and only the offending
+  #               frames compress (landing exactly on the cap), so a burst of sprinting no
+  #               longer shrinks the walking around it. Clips that never exceed the cap
+  #               reproduce the uncapped result to floating-point roundoff.
+  #   clip      : the older behaviour -- ONE scalar shrink min(s_nom, limit/peak_p99.5) baked
+  #               into the whole motion. Uniform apparent body size across the clip (nicer for
+  #               side-by-side videos), but one fast burst shrinks every frame and the p99.5
+  #               peak leaves the top 0.5% of frames above the cap.
+  base_speed_cap_mode : per_frame
+  ground_offset : 0.0    # per-frame robot ground offset [m] (apply_ground_offset)
+  # Warmup iteration at which the first-frame ground calibration measures the robot foot
+  # float (via FK) and folds it into ground_offset; remaining warmup iters re-settle the
+  # foot onto the ground. Clamped to warmup_iters//2. Active only if the IK config sets
+  # ground_anchor_bodies. The warmup foot pose converges within a few dozen iters.
+  ground_calib_warmup_iter : 200
+  # Collision-avoidance mode: "cbf" (hard CBF) | "issf" (robustified CBF) | "off".
+  collision_mode : cbf
+  # Plane pairs (ground_collision below): give every SUPPORT POINT its own smooth row --
+  # both axis endpoints of a capsule, the centre of a sphere -- instead of the single row
+  # mj_geomDistance yields for the currently-closest point. The exact capsule-plane
+  # distance min(z_a, z_b) - r is a MINIMUM of two smooth functions, so it kinks wherever
+  # the two endpoints are level -- the normal condition for a foot in stance. The CBF
+  # linearizes only the reported branch and a step across the kink lands on the other one,
+  # which is where the ground penetration enters. Splitting the min into "z_a >= r AND
+  # z_b >= r" is the SAME feasible set with no kink, so it costs no tracking accuracy.
+  # false restores the older single-row behaviour.
+  plane_vertex_rows : true
+
+  # Enable flags for the three IK limits (a constructor arg, if passed, overrides these).
+  use_velocity_limit : true       # FrameVelocityLimit (real per-frame velocity, frame_velocity_limit)
+  use_acceleration_limit : true   # FrameAccelerationLimit (real per-frame accel, frame_acceleration_limit)
+  use_ik_step_limit : true        # per-iteration IK step clamp (|Δq| <= ik_step_limit * opt.timestep)
+
+  ik_step_limit : 10
+
+  frame_acceleration_limit_soft:
+    # left leg
+    left_hip_pitch_joint: 8800
+    left_hip_roll_joint: 8800
+    left_hip_yaw_joint: 8800
+    left_knee_joint: 13900
+    left_ankle_pitch_joint: 5000
+    left_ankle_roll_joint: 5000
+    # right leg
+    right_hip_pitch_joint: 8800
+    right_hip_roll_joint: 8800
+    right_hip_yaw_joint: 8800
+    right_knee_joint: 13900
+    right_ankle_pitch_joint: 5000
+    right_ankle_roll_joint: 5000
+    # waist
+    waist_yaw_joint: 8800
+    waist_roll_joint: 5000
+    waist_pitch_joint: 5000
+    # left arm
+    left_shoulder_pitch_joint: 2500
+    left_shoulder_roll_joint: 2500
+    left_shoulder_yaw_joint: 2500
+    left_elbow_joint: 2500
+    left_wrist_roll_joint: 2500
+    left_wrist_pitch_joint: 500
+    left_wrist_yaw_joint: 500
+    # right arm
+    right_shoulder_pitch_joint: 2500
+    right_shoulder_roll_joint: 2500
+    right_shoulder_yaw_joint: 2500
+    right_elbow_joint: 2500
+    right_wrist_roll_joint: 2500
+    right_wrist_pitch_joint: 500
+    right_wrist_yaw_joint: 500
+  # DAQP soft-constraint rho, SHARED by all soft rows (velocity / acceleration / IK-step):
+  # smaller -> nearer-hard / stronger; larger -> softer / yields more easily. Default 1e-6.
+  soft_rho : 1.0e-6
+
+  frame_velocity_limit_soft:
+    # left leg
+    left_hip_pitch_joint: 32
+    left_hip_roll_joint: 20
+    left_hip_yaw_joint: 32
+    left_knee_joint: 20
+    left_ankle_pitch_joint: 37
+    left_ankle_roll_joint: 37
+    # right leg
+    right_hip_pitch_joint: 32
+    right_hip_roll_joint: 20
+    right_hip_yaw_joint: 32
+    right_knee_joint: 20
+    right_ankle_pitch_joint: 37
+    right_ankle_roll_joint: 37
+    # waist
+    waist_yaw_joint: 32
+    waist_roll_joint: 37
+    waist_pitch_joint: 37
+    # left arm
+    left_shoulder_pitch_joint: 37
+    left_shoulder_roll_joint: 37
+    left_shoulder_yaw_joint: 37
+    left_elbow_joint: 37
+    left_wrist_roll_joint: 37
+    left_wrist_pitch_joint: 22
+    left_wrist_yaw_joint: 22
+    # right arm
+    right_shoulder_pitch_joint: 37
+    right_shoulder_roll_joint: 37
+    right_shoulder_yaw_joint: 37
+    right_elbow_joint: 37
+    right_wrist_roll_joint: 37
+    right_wrist_pitch_joint: 22
+    right_wrist_yaw_joint: 22
+
+
+groups:
+  torso: ["Pelvis", "Chest", "Head"]
+  torso_upper: ["Chest", "Head"]
+  
+  l_arm: ["Left_Upper_Arm", "Left_Forearm", "Left_Elbow","Left_Hand1"]
+  r_arm: ["Right_Upper_Arm", "Right_Forearm", "Right_Elbow", "Right_Hand1"]
+  l_arm_upper: ["Left_Upper_Arm"]
+  r_arm_upper: ["Right_Upper_Arm"]
+  l_arm_lower: ["Left_Forearm", "Left_Elbow","Left_Hand1"]
+  r_arm_lower: ["Right_Forearm", "Right_Elbow", "Right_Hand1"]
+  
+  l_leg: ["Left_Upper_Leg1", "Left_Upper_Leg2", "Left_Lower_Leg", "Left_Lower_Leg2", "Left_Foot1", "Left_Foot2"]
+  r_leg: ["Right_Upper_Leg1", "Right_Upper_Leg2", "Right_Lower_Leg", "Right_Lower_Leg2", "Right_Foot1", "Right_Foot2"]
+  l_leg_upper: ["Left_Upper_Leg1"]
+  r_leg_upper: ["Right_Upper_Leg1"]
+  l_leg_lower: ["Left_Upper_Leg2","Left_Lower_Leg", "Left_Lower_Leg2", "Left_Foot1", "Left_Foot2"]
+  r_leg_lower: ["Right_Upper_Leg2", "Right_Lower_Leg", "Right_Lower_Leg2", "Right_Foot1", "Right_Foot2"]
+
+
+  ground: ["floor"]
+
+
+collision_limits:
+  - name: "body_general"
+    pairs: 
+      - ["l_leg", "r_leg"]
+      - ["l_arm", "l_leg"] 
+      - ["l_arm", "r_leg"]
+      - ["r_arm", "l_leg"]
+      - ["r_arm", "r_leg"]
+      - ["r_arm", "l_arm"]
+      - ["l_arm_lower", "torso"]
+      - ["r_arm_lower", "torso"]
+      - ["l_leg", "torso_upper"]
+      - ["r_leg", "torso_upper"]
+    cbf_gain: 1.0              
+    issf_epsilon: 1000.0        
+    margin: 0.0
+    detect_dist: 0.05
+
+  
+  - name: "ground_collision"
+    pairs:
+      - ["l_arm", "ground"]
+      - ["r_arm", "ground"]
+      - ["r_leg", "ground"]
+      - ["l_leg", "ground"]
+      - ["torso", "ground"]
+    cbf_gain: 1.0
+    issf_epsilon: 1000.0
+    margin: 0.0
+    detect_dist: 0.05

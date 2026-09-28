@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.ipynb_checkpoints/
+
+# IDEs / OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# SMPL-X body models (download separately, see README)
+assets/body_models/
+
+# Motion data and outputs
+human_motion/
+results/
+videos/
+figures/
+*.bvh
+*.npz
+*.pkl
+*.mp4
+*.png
+
+# Logs
+MUJOCO_LOG.TXT
+*.log
